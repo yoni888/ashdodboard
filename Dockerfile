@@ -1,37 +1,29 @@
-FROM php:8.2-apache
+FROM php:8.2-fpm
 
-# Системные зависимости
+# System dependencies
 RUN apt-get update && apt-get install -y \
     git \
     unzip \
     libzip-dev \
-    libpng-dev \
-    libonig-dev \
-    libxml2-dev \
-    && docker-php-ext-install pdo pdo_mysql zip mbstring exif pcntl bcmath gd
+    && docker-php-ext-install zip pdo pdo_mysql
 
-# Apache rewrite
-RUN a2enmod rewrite
-
-# Рабочая папка
-WORKDIR /var/www/html
-
-# Копируем проект
-COPY . /var/www/html
-
-# Composer
+# Install Composer
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
-# 🔴 ВАЖНО: запрещаем запуск artisan во время composer install
-ENV COMPOSER_ALLOW_SUPERUSER=1
-RUN composer install --no-dev --no-scripts --optimize-autoloader
+# Set working directory
+WORKDIR /var/www/html
 
-# Права (без chown — Render не разрешает)
-RUN chmod -R 775 storage bootstrap/cache || true
+# Copy project
+COPY . .
 
-# Apache public
-ENV APACHE_DOCUMENT_ROOT /var/www/html/public
-RUN sed -ri 's!/var/www/html!/var/www/html/public!g' /etc/apache2/sites-available/*.conf
+# Install PHP dependencies
+RUN composer install --no-dev --optimize-autoloader --no-interaction
 
-EXPOSE 10000
-CMD ["apache2-foreground"]
+# Create required directories and set permissions (БЕЗ chown)
+RUN mkdir -p storage bootstrap/cache \
+    && chmod -R 775 storage bootstrap/cache
+
+# Expose port
+EXPOSE 9000
+
+CMD ["php-fpm"]
