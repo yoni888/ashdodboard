@@ -1,52 +1,46 @@
+# ---- Base image ----
 FROM php:8.2-apache
 
-# Enable Apache rewrite
-RUN a2enmod rewrite
-
-# System dependencies (IMPORTANT: includes libonig-dev)
+# ---- System dependencies ----
 RUN apt-get update && apt-get install -y \
     git \
-    curl \
     unzip \
     libpng-dev \
-    libzip-dev \
     libonig-dev \
-    && rm -rf /var/lib/apt/lists/*
-
-# PHP extensions (order matters)
-RUN docker-php-ext-install \
+    libxml2-dev \
+    libzip-dev \
+    zip \
+    curl \
+    && docker-php-ext-install \
     pdo \
     pdo_mysql \
     mbstring \
-    zip \
     exif \
     pcntl \
     bcmath \
-    gd
+    gd \
+    zip \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
-# Composer
-COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+# ---- Enable Apache rewrite ----
+RUN a2enmod rewrite
 
-# Workdir
+# ---- Set working directory ----
 WORKDIR /var/www/html
 
-# Copy project
-COPY . .
+# ---- Copy project ----
+COPY . /var/www/html
 
-# Laravel required folders
-RUN mkdir -p storage bootstrap/cache
+# ---- Apache config for Laravel ----
+RUN sed -i 's|/var/www/html|/var/www/html/public|g' /etc/apache2/sites-available/000-default.conf
 
-# Install PHP deps
-RUN composer install --no-dev --optimize-autoloader
-
-# Permissions (Render-safe)
+# ---- Permissions ----
 RUN chown -R www-data:www-data /var/www/html \
-    && chmod -R 775 storage bootstrap/cache
+    && chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
 
-# Apache public folder
-ENV APACHE_DOCUMENT_ROOT=/var/www/html/public
-RUN sed -ri 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/sites-available/*.conf \
-    && sed -ri 's!/var/www/!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/apache2.conf /etc/apache2/conf-available/*.conf
-
+# ---- Expose port ----
 EXPOSE 80
+
+# ---- Start Apache ----
 CMD ["apache2-foreground"]
