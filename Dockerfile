@@ -1,27 +1,34 @@
+
 FROM php:8.2-apache
 
-# Включаем mod_rewrite (нужно для Laravel)
-RUN a2enmod rewrite
-
-# Устанавливаем системные зависимости
+# Install system dependencies
 RUN apt-get update && apt-get install -y \
     git \
     unzip \
     libzip-dev \
-    && docker-php-ext-install zip pdo pdo_mysql
+    zip \
+    && docker-php-ext-install pdo pdo_mysql zip
 
-# Устанавливаем Composer
+# Enable Apache mod_rewrite
+RUN a2enmod rewrite
+
+# Install Composer
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
-# Рабочая папка
+# Set working directory
 WORKDIR /var/www/html
 
-# Копируем проект
+# Copy project files
 COPY . .
 
-# Устанавливаем зависимости Laravel
+# Install PHP dependencies
 RUN composer install --no-dev --optimize-autoloader
 
-# Права
+# Set permissions
 RUN chown -R www-data:www-data /var/www/html \
-    &&
+    && chmod -R 755 /var/www/html/storage
+
+# Apache config for Laravel
+RUN sed -i 's|/var/www/html|/var/www/html/public|g' /etc/apache2/sites-available/000-default.conf
+
+EXPOSE 80
