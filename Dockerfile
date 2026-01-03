@@ -1,32 +1,36 @@
 FROM php:8.2-apache
 
-# Устанавливаем системные зависимости
+# Установка системных пакетов
 RUN apt-get update && apt-get install -y \
+    git \
+    unzip \
     libpng-dev \
     libonig-dev \
     libxml2-dev \
-    libzip-dev \
     zip \
-    unzip \
     curl \
-    git \
-    && docker-php-ext-install pdo pdo_mysql mbstring xml zip \
-    && a2enmod rewrite
+    && docker-php-ext-install pdo pdo_mysql mbstring exif pcntl bcmath gd
 
-# Устанавливаем рабочую директорию
+# Включаем mod_rewrite
+RUN a2enmod rewrite
+
+# Устанавливаем Composer
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+
+# Рабочая директория
 WORKDIR /var/www/html
 
-# Копируем проект
-COPY . /var/www/html
+# Копируем ВСЁ приложение
+COPY . .
 
-# Создаём нужные папки Laravel (ВАЖНО)
-RUN mkdir -p storage bootstrap/cache
+# Устанавливаем зависимости Laravel
+RUN composer install --no-dev --optimize-autoloader
 
-# Назначаем права ПОСЛЕ копирования
+# Права на папки
 RUN chown -R www-data:www-data /var/www/html \
-    && chmod -R 775 storage bootstrap/cache
+    && chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
 
-# Настраиваем Apache под Laravel public
+# Apache должен смотреть в public
 RUN sed -i 's|/var/www/html|/var/www/html/public|g' /etc/apache2/sites-available/000-default.conf
 
 EXPOSE 80
