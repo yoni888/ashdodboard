@@ -1,6 +1,6 @@
 FROM php:8.2-apache
 
-# Устанавливаем системные зависимости
+# Системные зависимости
 RUN apt-get update && apt-get install -y \
     git \
     unzip \
@@ -10,30 +10,28 @@ RUN apt-get update && apt-get install -y \
     libxml2-dev \
     && docker-php-ext-install pdo pdo_mysql zip mbstring exif pcntl bcmath gd
 
-# Включаем mod_rewrite
+# Apache rewrite
 RUN a2enmod rewrite
 
 # Рабочая папка
 WORKDIR /var/www/html
 
-# Копируем ВСЁ из репозитория
+# Копируем проект
 COPY . /var/www/html
 
-# Устанавливаем Composer
+# Composer
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
-# Устанавливаем зависимости Laravel
-RUN composer install --no-dev --optimize-autoloader
+# 🔴 ВАЖНО: запрещаем запуск artisan во время composer install
+ENV COMPOSER_ALLOW_SUPERUSER=1
+RUN composer install --no-dev --no-scripts --optimize-autoloader
 
-# Права доступа (БЕЗ chown — важно для Render)
+# Права (без chown — Render не разрешает)
 RUN chmod -R 775 storage bootstrap/cache || true
 
-# DocumentRoot → public
+# Apache public
 ENV APACHE_DOCUMENT_ROOT /var/www/html/public
 RUN sed -ri 's!/var/www/html!/var/www/html/public!g' /etc/apache2/sites-available/*.conf
 
-# Порт Render
 EXPOSE 10000
-
-# Запуск Apache
 CMD ["apache2-foreground"]
