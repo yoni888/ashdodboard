@@ -1,29 +1,27 @@
-FROM php:8.2-fpm
+FROM php:8.2-apache
 
-# System dependencies
+# Enable Apache rewrite
+RUN a2enmod rewrite
+
+# Install system packages
 RUN apt-get update && apt-get install -y \
     git \
     unzip \
     libzip-dev \
     && docker-php-ext-install zip pdo pdo_mysql
 
-# Install Composer
-COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+# Set document root to Laravel public
+ENV APACHE_DOCUMENT_ROOT /var/www/html/public
 
-# Set working directory
-WORKDIR /var/www/html
+RUN sed -ri 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/sites-available/*.conf && \
+    sed -ri 's!/var/www/!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/apache2.conf /etc/apache2/conf-available/*.conf
 
-# Copy project
-COPY . .
+# Copy project files
+COPY . /var/www/html
 
-# Install PHP dependencies
-RUN composer install --no-dev --optimize-autoloader --no-interaction
+# Permissions (минимум, без chown)
+RUN chmod -R 755 /var/www/html
 
-# Create required directories and set permissions (БЕЗ chown)
-RUN mkdir -p storage bootstrap/cache \
-    && chmod -R 775 storage bootstrap/cache
+EXPOSE 80
 
-# Expose port
-EXPOSE 9000
-
-CMD ["php-fpm"]
+CMD ["apache2-foreground"]
