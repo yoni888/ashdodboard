@@ -1,34 +1,41 @@
-
 FROM php:8.2-apache
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
-    git \
-    unzip \
+    libpng-dev \
+    libonig-dev \
+    libxml2-dev \
     libzip-dev \
     zip \
-    && docker-php-ext-install pdo pdo_mysql zip
+    unzip \
+    curl \
+    git \
+    && docker-php-ext-install \
+    pdo \
+    pdo_mysql \
+    mbstring \
+    xml \
+    zip \
+    ctype \
+    tokenizer
 
 # Enable Apache mod_rewrite
 RUN a2enmod rewrite
-
-# Install Composer
-COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 # Set working directory
 WORKDIR /var/www/html
 
 # Copy project files
-COPY . .
-
-# Install PHP dependencies
-RUN composer install --no-dev --optimize-autoloader
+COPY . /var/www/html
 
 # Set permissions
 RUN chown -R www-data:www-data /var/www/html \
-    && chmod -R 755 /var/www/html/storage
+    && chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
 
-# Apache config for Laravel
-RUN sed -i 's|/var/www/html|/var/www/html/public|g' /etc/apache2/sites-available/000-default.conf
+# Install Composer
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+
+# Install PHP dependencies
+RUN composer install --no-dev --optimize-autoloader
 
 EXPOSE 80
