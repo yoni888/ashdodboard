@@ -20,7 +20,7 @@ COPY . /var/www/html
 # Install Composer
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
-# Install dependencies WITHOUT ANY scripts
+# Install dependencies WITHOUT scripts
 RUN composer install \
     --no-dev \
     --no-interaction \
@@ -28,13 +28,17 @@ RUN composer install \
     --no-scripts \
     --no-autoloader
 
-# Generate autoload WITHOUT optimization
+# Generate autoload safely
 RUN composer dump-autoload --no-scripts
+
+# CREATE required Laravel directories
+RUN mkdir -p /var/www/html/storage \
+    && mkdir -p /var/www/html/bootstrap/cache
 
 # Permissions
 RUN chown -R www-data:www-data /var/www/html \
-    && chmod -R 755 /var/www/html/storage \
-    && chmod -R 755 /var/www/html/bootstrap/cache
+    && chmod -R 775 /var/www/html/storage \
+    && chmod -R 775 /var/www/html/bootstrap/cache
 
 # Apache public directory
 ENV APACHE_DOCUMENT_ROOT /var/www/html/public
