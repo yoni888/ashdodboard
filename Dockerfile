@@ -1,7 +1,6 @@
-
 FROM php:8.2-apache
 
-# System dependencies
+# Устанавливаем системные зависимости
 RUN apt-get update && apt-get install -y \
     git \
     unzip \
@@ -10,32 +9,32 @@ RUN apt-get update && apt-get install -y \
     libonig-dev \
     libxml2-dev \
     zip \
-    curl
+    curl \
+    && docker-php-ext-install pdo pdo_mysql zip mbstring exif pcntl bcmath gd
 
-# PHP extensions
-RUN docker-php-ext-install pdo pdo_mysql zip
-
-# Enable Apache mod_rewrite
+# Включаем mod_rewrite
 RUN a2enmod rewrite
 
-# Set working directory
-WORKDIR /var/www/html
-
-# Copy project files
-COPY . /var/www/html
-
-# Install Composer
+# Устанавливаем Composer
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
-# Install dependencies WITHOUT running scripts
-RUN composer install --no-dev --no-interaction --no-scripts --prefer-dist
+# Рабочая директория
+WORKDIR /var/www/html
 
-# Permissions
-RUN chmod -R 777 storage bootstrap/cache
+# Копируем весь проект
+COPY . .
 
-# Apache config
-ENV APACHE_DOCUMENT_ROOT /var/www/html/public
-RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/sites-available/*.conf
-RUN sed -ri -e 's!/var/www/!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/apache2.conf /etc/apache2/conf-available/*.conf
+# Устанавливаем зависимости Laravel
+RUN composer install --no-dev --optimize-autoloader --no-interaction
 
+# Права доступа (ИСПРАВЛЕНО)
+RUN chmod -R 777 storage && chmod -R 777 bootstrap/cache
+
+# Apache config для Laravel
+RUN sed -i 's|/var/www/html|/var/www/html/public|g' /etc/apache2/sites-available/000-default.conf
+
+# Открываем порт
 EXPOSE 80
+
+# Запуск Apache
+CMD ["apache2-foreground"]
