@@ -1,35 +1,37 @@
 FROM php:8.2-apache
 
-# Install system dependencies
+# System dependencies
 RUN apt-get update && apt-get install -y \
     git \
     unzip \
-    libpq-dev \
     libzip-dev \
+    libpq-dev \
     && docker-php-ext-install pdo pdo_pgsql zip
 
 # Enable Apache rewrite
 RUN a2enmod rewrite
 
-# Install Composer
-COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
-
 # Set working directory
 WORKDIR /var/www/html
 
-# Copy project files
-COPY . .
+# Copy project
+COPY . /var/www/html
 
-# Install PHP dependencies (THIS CREATES vendor/)
-RUN composer install --no-dev --optimize-autoloader --no-interaction
+# Install Composer
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
-# Set permissions
+# Install dependencies WITHOUT scripts
+RUN composer install --no-dev --no-interaction --prefer-dist --no-scripts
+
+# Generate optimized autoload
+RUN composer dump-autoload --optimize
+
+# Permissions
 RUN chown -R www-data:www-data /var/www/html \
-    && chmod -R 775 storage bootstrap/cache
+    && chmod -R 755 /var/www/html/storage \
+    && chmod -R 755 /var/www/html/bootstrap/cache
 
 # Apache config
-ENV APACHE_DOCUMENT_ROOT=/var/www/html/public
+ENV APACHE_DOCUMENT_ROOT /var/www/html/public
 RUN sed -ri 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/sites-available/*.conf \
     && sed -ri 's!/var/www/!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/apache2.conf /etc/apache2/conf-available/*.conf
-
-EXPOSE 80
