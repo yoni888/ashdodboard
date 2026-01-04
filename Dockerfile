@@ -20,18 +20,23 @@ COPY . /var/www/html
 # Install Composer
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
-# Install dependencies WITHOUT scripts
-RUN composer install --no-dev --no-interaction --prefer-dist --no-scripts
+# Install dependencies WITHOUT ANY scripts
+RUN composer install \
+    --no-dev \
+    --no-interaction \
+    --prefer-dist \
+    --no-scripts \
+    --no-autoloader
 
-# Generate optimized autoload
-RUN composer dump-autoload --optimize
+# Generate autoload WITHOUT optimization
+RUN composer dump-autoload --no-scripts
 
 # Permissions
 RUN chown -R www-data:www-data /var/www/html \
     && chmod -R 755 /var/www/html/storage \
     && chmod -R 755 /var/www/html/bootstrap/cache
 
-# Apache config
+# Apache public directory
 ENV APACHE_DOCUMENT_ROOT /var/www/html/public
 RUN sed -ri 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/sites-available/*.conf \
     && sed -ri 's!/var/www/!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/apache2.conf /etc/apache2/conf-available/*.conf
