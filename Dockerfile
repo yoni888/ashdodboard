@@ -5,10 +5,16 @@ RUN apt-get update && apt-get install -y \
     git \
     unzip \
     libzip-dev \
-    libpq-dev \
-    && docker-php-ext-install pdo pdo_pgsql zip
+    libpng-dev \
+    libonig-dev \
+    libxml2-dev \
+    zip \
+    curl
 
-# Enable Apache rewrite
+# PHP extensions
+RUN docker-php-ext-install pdo pdo_mysql zip mbstring exif pcntl bcmath gd
+
+# Enable Apache mod_rewrite
 RUN a2enmod rewrite
 
 # Set working directory
@@ -20,27 +26,15 @@ COPY . /var/www/html
 # Install Composer
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
-# Install dependencies WITHOUT scripts
-RUN composer install \
-    --no-dev \
-    --no-interaction \
-    --prefer-dist \
-    --no-scripts \
-    --no-autoloader
+# Install dependencies
+RUN composer install --no-dev --optimize-autoloader --no-interaction
 
-# Generate autoload safely
-RUN composer dump-autoload --no-scripts
-
-# CREATE required Laravel directories
-RUN mkdir -p /var/www/html/storage \
-    && mkdir -p /var/www/html/bootstrap/cache
-
-# Permissions
+# Permissions (Laravel)
 RUN chown -R www-data:www-data /var/www/html \
     && chmod -R 775 /var/www/html/storage \
     && chmod -R 775 /var/www/html/bootstrap/cache
 
-# Apache public directory
-ENV APACHE_DOCUMENT_ROOT /var/www/html/public
-RUN sed -ri 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/sites-available/*.conf \
-    && sed -ri 's!/var/www/!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/apache2.conf /etc/apache2/conf-available/*.conf
+# Apache config
+RUN sed -i 's|/var/www/html|/var/www/html/public|g' /etc/apache2/sites-available/000-default.conf
+
+EXPOSE 80
