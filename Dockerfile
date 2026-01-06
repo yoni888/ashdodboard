@@ -1,30 +1,44 @@
-
 FROM php:8.2-apache
 
-# Системные пакеты
+# Установка системных зависимостей
 RUN apt-get update && apt-get install -y \
-    git unzip libzip-dev libpng-dev libonig-dev libxml2-dev \
-    && docker-php-ext-install pdo_mysql zip mbstring exif pcntl bcmath gd
+    git \
+    unzip \
+    libpng-dev \
+    libonig-dev \
+    libxml2-dev \
+    libzip-dev \
+    zip \
+    curl \
+    && docker-php-ext-install pdo pdo_mysql mbstring zip exif pcntl gd
 
-# Apache
+# Включаем mod_rewrite
 RUN a2enmod rewrite
+
+# Устанавливаем Composer
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 # Рабочая директория
 WORKDIR /var/www/html
 
 # Копируем проект
-COPY . /var/www/html
+COPY . .
 
-# Composer
-COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+# Устанавливаем зависимости Laravel
+RUN composer install --no-dev --optimize-autoloader --no-interaction
 
-# Устанавливаем зависимости БЕЗ artisan
-RUN composer install --no-dev --no-interaction --prefer-dist || true
+# Создаём нужные папки
+RUN mkdir -p storage/logs \
+    storage/framework/cache \
+    storage/framework/sessions \
+    storage/framework/views \
+    bootstrap/cache
 
-# Права (БЕЗ chmod storage!)
-RUN chown -R www-data:www-data /var/www/html
+# Права доступа
+RUN chmod -R 777 storage bootstrap/cache
 
-# Apache config
+# Apache DocumentRoot
 RUN sed -i 's|/var/www/html|/var/www/html/public|g' /etc/apache2/sites-available/000-default.conf
 
 EXPOSE 80
+
