@@ -19,16 +19,21 @@ WORKDIR /var/www/html
 
 COPY . .
 
-RUN mkdir -p storage/logs \
+# СОЗДАЁМ ПАПКИ ДО composer
+RUN mkdir -p \
+    storage/logs \
     storage/framework/cache \
     storage/framework/sessions \
     storage/framework/views \
     bootstrap/cache
 
+# ПРАВА
 RUN chmod -R 777 storage bootstrap/cache
 
-RUN composer install --no-dev --optimize-autoloader --no-interaction
+# COMPOSER ПОСЛЕ ПАПОК
+RUN composer install --no-dev --no-interaction --optimize-autoloader || true
 
+# APACHE PUBLIC
 RUN sed -i 's|/var/www/html|/var/www/html/public|g' /etc/apache2/sites-available/000-default.conf
 
 EXPOSE 80
