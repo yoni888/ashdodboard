@@ -1,6 +1,6 @@
 FROM php:8.2-apache
 
-# Устанавливаем системные зависимости
+# System deps
 RUN apt-get update && apt-get install -y \
     git \
     unzip \
@@ -12,29 +12,34 @@ RUN apt-get update && apt-get install -y \
     curl \
     && docker-php-ext-install pdo pdo_mysql zip mbstring exif pcntl bcmath gd
 
-# Включаем mod_rewrite
+# Apache
 RUN a2enmod rewrite
 
-# Устанавливаем Composer
+# Composer
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
-# Рабочая директория
+# Workdir
 WORKDIR /var/www/html
 
-# Копируем весь проект
+# Copy project
 COPY . .
 
-# Устанавливаем зависимости Laravel
-RUN composer install --no-dev --optimize-autoloader --no-interaction
+# ⚠️ КРИТИЧЕСКОЕ ИЗМЕНЕНИЕ
+# Отключаем artisan scripts полностью
+ENV COMPOSER_ALLOW_SUPERUSER=1
+RUN composer install \
+    --no-dev \
+    --no-scripts \
+    --no-interaction \
+    --optimize-autoloader
 
-# Права доступа (ИСПРАВЛЕНО)
-RUN chmod -R 777 storage && chmod -R 777 bootstrap/cache
+# Permissions
+RUN chmod -R 777 storage bootstrap/cache
 
-# Apache config для Laravel
-RUN sed -i 's|/var/www/html|/var/www/html/public|g' /etc/apache2/sites-available/000-default.conf
+# Apache Laravel public
+RUN sed -i 's|/var/www/html|/var/www/html/public|g' \
+    /etc/apache2/sites-available/000-default.conf
 
-# Открываем порт
 EXPOSE 80
 
-# Запуск Apache
 CMD ["apache2-foreground"]
